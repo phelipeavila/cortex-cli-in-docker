@@ -1,0 +1,84 @@
+# Use Amazon Linux 2023 as the base image
+# Cortex CLI binary is amd64 only - enforce platform
+ARG TARGETPLATFORM=linux/amd64
+
+# Build stage: Get hyperscan from Fedora 35 (compatible with AL2023 glibc/libstdc++)
+FROM --platform=linux/amd64 fedora:35 AS builder
+RUN dnf install -y hyperscan
+
+# Final Image
+FROM --platform=linux/amd64 public.ecr.aws/amazonlinux/amazonlinux:2023.6.20250303.0
+
+# Metadata labels for better image management
+LABEL maintainer="security-team" \
+      description="Cortex CLI container for security scanning (API Security, CWP, Cloud AppSec)" \
+      version="1.0"
+
+# Set environment variables
+ENV PATH="/usr/local/bin:${PATH}"
+
+# Install dependencies via dnf
+# - curl, git, jq, tar, gzip, ca-certificates: For secure downloads and standard tools
+# - java-17-amazon-corretto-headless: Required for API Security and CWP modules (Java 11+ required)
+# - docker: Docker client required for 'image scan' (communicating with host daemon)
+# - patchelf, zstd: Required for RHEL/Amazon Linux compatibility per Cortex docs
+# - shadow-utils: Required for useradd/groupadd
+# - findutils: For 'xargs' and other find utilities
+# Note: sslverify=false bypasses potential proxy certificate issues during build
+RUN echo "sslverify=false" >> /etc/dnf/dnf.conf \
+    && dnf update -y \
+    && dnf install -y --allowerasing \
+        curl \
+        git \
+        jq \
+        tar \
+        gzip \
+        ca-certificates \
+        java-17-amazon-corretto-headless \
+        docker \
+        patchelf \
+        zstd \
+        shadow-utils \
+        findutils \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf/*
+
+# Copy hyperscan libraries from builder
+COPY --from=builder /usr/lib64/libhs.so.5* /usr/lib64/
+RUN ldconfig
+
+# Install Node.js v22 (Required for Cloud Application Security module)
+# We use the official NodeSource repository for RPM-based distributions
+RUN curl -fsSL https://rpm.nodesource.com/setup_22.x | bash - \
+    && dnf install -y nodejs \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf/*
+
+# Create a non-root user 'cortex' for security best practices
+# We create a group 'cortex' and user 'cortex' with a home directory
+# Also add to 'docker' group for socket access when mounted
+RUN groupadd -r cortex && useradd -r -g cortex -m -s /bin/bash cortex \
+    && usermod -aG docker cortex
+
+# Copy the cortexcli binary from the build context
+# Ensure you have the 'cortexcli' binary in the same directory as this Dockerfile
+COPY --chmod=755 cortexcli /usr/local/bin/cortexcli
+
+# Set the working directory
+WORKDIR /workspace
+
+# Set ownership of the workspace to the non-root user
+RUN chown cortex:cortex /workspace
+
+# Switch to the non-root user
+USER cortex
+
+# Healthcheck to verify CLI is functional
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD cortexcli --version || exit 1
+
+# Entrypoint: Default to running the cortexcli
+ENTRYPOINT ["cortexcli"]
+
+# Default command: Show help
+CMD ["--help"]

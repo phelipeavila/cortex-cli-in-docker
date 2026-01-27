@@ -20,11 +20,19 @@ This document provides instructions for building and using the Cortex CLI Docker
 
 ## 1. Build the Image
 
-Run the following command in the directory containing the `Dockerfile` and `cortexcli` binary:
+Run the following command in the directory containing the Dockerfile and `cortexcli` binary:
 
+**Ubuntu-based:**
 ```bash
-docker build -t cortex-cli:latest .
+docker build --platform linux/amd64 -f Dockerfile.ubuntu -t cortex-cli:ubuntu .
 ```
+
+**Amazon Linux-based:**
+```bash
+docker build --platform linux/amd64 -f Dockerfile.amazonlinux -t cortex-cli:amazonlinux .
+```
+
+> **Note:** The examples below use `cortex-cli:ubuntu`. Replace with `cortex-cli:amazonlinux` if using the Amazon Linux image.
 
 ## 2. Authentication Setup
 
@@ -47,7 +55,7 @@ CORTEX_API_BASE_URL=https://api-your-tenant.xdr.us.paloaltonetworks.com
 
 Run using the env file:
 ```bash
-docker run --rm --env-file cortex.env cortex-cli:latest --version
+docker run --rm --env-file cortex.env cortex-cli:ubuntu --version
 ```
 
 ### Option B: Inline Environment Variables
@@ -58,7 +66,7 @@ docker run --rm \
   -e CORTEX_API_KEY="<your_key>" \
   -e CORTEX_API_KEY_ID="<your_key_id>" \
   -e CORTEX_API_BASE_URL="<your_url>" \
-  cortex-cli:latest --version
+  cortex-cli:ubuntu --version
 ```
 
 ---
@@ -74,7 +82,7 @@ Scans code for Secrets, IaC misconfigurations, and SCA vulnerabilities.
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -88,7 +96,7 @@ docker run --rm \
   -e CORTEX_API_KEY_ID=$CORTEX_API_KEY_ID \
   -e CORTEX_API_BASE_URL=$CORTEX_API_BASE_URL \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -106,7 +114,7 @@ docker run --rm \
   --env-file cortex.env \
   --group-add $(getent group docker | cut -d: -f3) \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  cortex-cli:latest image scan <image_name>
+  cortex-cli:ubuntu image scan <image_name>
 ```
 
 **Option 2: Run as root (simpler but less secure)**
@@ -114,7 +122,7 @@ docker run --rm \
 docker run --rm --user root \
   --env-file cortex.env \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  cortex-cli:latest image scan <image_name>
+  cortex-cli:ubuntu image scan <image_name>
 ```
 
 **Scanning a .tar archive (no socket needed):**
@@ -122,7 +130,7 @@ docker run --rm --user root \
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest image scan --archive /workspace/my-image.tar
+  cortex-cli:ubuntu image scan --archive /workspace/my-image.tar
 ```
 
 ### Scanning Images from Private Registries
@@ -149,7 +157,7 @@ docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --user $(id -u):$(id -g) \
   --group-add $(getent group docker | cut -d: -f3) \
-  cortex-cli:latest image scan 123456789.dkr.ecr.us-west-2.amazonaws.com/my-app:latest
+  cortex-cli:ubuntu image scan 123456789.dkr.ecr.us-west-2.amazonaws.com/my-app:latest
 ```
 
 #### Option 2: Export to Archive (Most Portable)
@@ -165,7 +173,7 @@ docker save -o my-app.tar 123456789.dkr.ecr.us-east-1.amazonaws.com/my-app:lates
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest image scan --archive /workspace/my-app.tar
+  cortex-cli:ubuntu image scan --archive /workspace/my-app.tar
 ```
 
 #### AWS ECR Quick Reference
@@ -177,7 +185,7 @@ aws ecr get-login-password --region $AWS_REGION | \
   docker pull $ECR_IMAGE && \
   docker run --rm --env-file cortex.env \
     -v /var/run/docker.sock:/var/run/docker.sock --user root \
-    cortex-cli:latest image scan $ECR_IMAGE
+    cortex-cli:ubuntu image scan $ECR_IMAGE
 ```
 
 #### Azure ACR Quick Reference
@@ -191,7 +199,7 @@ docker run --rm --env-file cortex.env \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/.docker/config.json:/home/cortex/.docker/config.json:ro \
   --user root \
-  cortex-cli:latest image scan myregistry.azurecr.io/my-app:latest
+  cortex-cli:ubuntu image scan myregistry.azurecr.io/my-app:latest
 ```
 
 #### Google Artifact Registry Quick Reference
@@ -205,7 +213,7 @@ docker run --rm --env-file cortex.env \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/.docker/config.json:/home/cortex/.docker/config.json:ro \
   --user root \
-  cortex-cli:latest image scan us-docker.pkg.dev/my-project/my-repo/my-app:latest
+  cortex-cli:ubuntu image scan us-docker.pkg.dev/my-project/my-repo/my-app:latest
 ```
 
 ### API Scan (API Security)
@@ -217,7 +225,7 @@ Requires an OpenAPI specification file and network access to reach the target ap
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)/specs":/specs \
-  cortex-cli:latest api scan \
+  cortex-cli:ubuntu api scan \
     --api-spec-file /specs/openapi.json \
     --scanned-app-url http://target-app.com
 ```
@@ -229,7 +237,7 @@ docker run --rm \
   -e CORTEX_API_KEY_ID=$CORTEX_API_KEY_ID \
   -e CORTEX_API_BASE_URL=$CORTEX_API_BASE_URL \
   -v "$(pwd)/specs":/specs \
-  cortex-cli:latest api scan \
+  cortex-cli:ubuntu api scan \
     --api-spec-file /specs/openapi.json \
     --scanned-app-url http://target-app.com \
     --auth-file /specs/auth-file.yaml
@@ -250,7 +258,7 @@ docker run --rm \
   --group-add $(getent group docker | cut -d: -f3) \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest image sbom <image_name> \
+  cortex-cli:ubuntu image sbom <image_name> \
     --output-file-path /workspace/sbom.json
 ```
 
@@ -261,7 +269,7 @@ Scan only for specific issues (e.g., Terraform misconfigurations):
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -273,7 +281,7 @@ Scan for secrets only:
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -285,7 +293,7 @@ Skip specific frameworks:
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -299,7 +307,7 @@ Run scans without uploading results to Cortex tenant:
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --upload-mode no-upload \
     --output json \
@@ -314,7 +322,7 @@ docker run --rm \
   --env-file cortex.env \
   --soft-fail \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo
@@ -329,7 +337,7 @@ docker run --rm \
   -e HTTP_PROXY=http://proxy.company.com:8080 \
   -e HTTPS_PROXY=http://proxy.company.com:8080 \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo
@@ -342,7 +350,7 @@ docker run --rm \
   -e HTTPS_PROXY=http://proxy.company.com:8080 \
   -v "$(pwd)":/workspace \
   -v /path/to/ca-cert.pem:/certs/ca-cert.pem:ro \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -356,7 +364,7 @@ Generate SARIF output for IDE integration:
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -369,7 +377,7 @@ Generate JUnit XML for CI systems:
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -389,7 +397,7 @@ terraform show -json tfplan > tfplan.json
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -405,7 +413,7 @@ Skip specific directories or files:
 docker run --rm \
   --env-file cortex.env \
   -v "$(pwd)":/workspace \
-  cortex-cli:latest code scan \
+  cortex-cli:ubuntu code scan \
     --directory /workspace \
     --branch main \
     --repo-id my-org/my-repo \
@@ -437,7 +445,7 @@ jobs:
             -e CORTEX_API_KEY_ID=${{ secrets.CORTEX_API_KEY_ID }} \
             -e CORTEX_API_BASE_URL=${{ secrets.CORTEX_API_BASE_URL }} \
             -v "${{ github.workspace }}":/workspace \
-            cortex-cli:latest code scan \
+            cortex-cli:ubuntu code scan \
               --directory /workspace \
               --branch ${{ github.ref_name }} \
               --repo-id ${{ github.repository }} \
@@ -460,7 +468,7 @@ cortex-scan:
         -e CORTEX_API_KEY_ID=$CORTEX_API_KEY_ID
         -e CORTEX_API_BASE_URL=$CORTEX_API_BASE_URL
         -v "$CI_PROJECT_DIR":/workspace
-        cortex-cli:latest code scan
+        cortex-cli:ubuntu code scan
           --directory /workspace
           --branch $CI_COMMIT_REF_NAME
           --repo-id $CI_PROJECT_PATH
@@ -487,7 +495,7 @@ pipeline {
                       -e CORTEX_API_KEY_ID=$CORTEX_API_KEY_ID \
                       -e CORTEX_API_BASE_URL=$CORTEX_API_BASE_URL \
                       -v "$WORKSPACE":/workspace \
-                      cortex-cli:latest code scan \
+                      cortex-cli:ubuntu code scan \
                         --directory /workspace \
                         --branch $GIT_BRANCH \
                         --repo-id $JOB_NAME \
@@ -530,7 +538,7 @@ cortex() {
   
   docker run $docker_args \
     -v "$(pwd)":/workspace \
-    cortex-cli:latest "$@"
+    cortex-cli:ubuntu "$@"
 }
 
 # Helper: Scan ECR image (handles login, pull, and scan)
@@ -582,10 +590,10 @@ cortex --version
 **Simple alias alternatives** (if you prefer one-liners):
 ```bash
 # For code scans only
-alias cortex-code='docker run --rm --env-file ${CORTEX_ENV_FILE:-./cortex.env} -v "$(pwd)":/workspace cortex-cli:latest code scan'
+alias cortex-code='docker run --rm --env-file ${CORTEX_ENV_FILE:-./cortex.env} -v "$(pwd)":/workspace cortex-cli:ubuntu code scan'
 
 # For image scans (assumes image is already pulled)
-alias cortex-image='docker run --rm --env-file ${CORTEX_ENV_FILE:-./cortex.env} -v /var/run/docker.sock:/var/run/docker.sock --user $(id -u):$(id -g) --group-add $(getent group docker | cut -d: -f3) cortex-cli:latest image scan'
+alias cortex-image='docker run --rm --env-file ${CORTEX_ENV_FILE:-./cortex.env} -v /var/run/docker.sock:/var/run/docker.sock --user $(id -u):$(id -g) --group-add $(getent group docker | cut -d: -f3) cortex-cli:ubuntu image scan'
 ```
 
 ---
@@ -614,7 +622,7 @@ alias cortex-image='docker run --rm --env-file ${CORTEX_ENV_FILE:-./cortex.env} 
 
 *   **Timeout errors**: For large codebases or slow networks, increase the timeout:
     ```bash
-    cortex-cli:latest code scan --timeout 30m ...
+    cortex-cli:ubuntu code scan --timeout 30m ...
     ```
 
 *   **Environment file not found**: Ensure the path to `cortex.env` is correct, or use the full path:
@@ -635,5 +643,5 @@ alias cortex-image='docker run --rm --env-file ${CORTEX_ENV_FILE:-./cortex.env} 
     # Step 3: Scan (now works because image is local)
     docker run --rm --env-file cortex.env -v /var/run/docker.sock:/var/run/docker.sock \
       --user $(id -u):$(id -g) --group-add $(getent group docker | cut -d: -f3) \
-      cortex-cli:latest image scan <private-image>
+      cortex-cli:ubuntu image scan <private-image>
     ```
