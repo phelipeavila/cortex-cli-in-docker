@@ -223,7 +223,7 @@ echo "Obtaining findings of image $IMAGE_NAME..."
 start_response=$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: ${CORTEX_API_KEY}" -H "x-xdr-auth-id: ${CORTEX_API_KEY_ID}" "${CORTEX_API_URL}/public_api/v1/xql/start_xql_query" -d '
     {
         "request_data": {
-            "query": "dataset = uvm_findings | filter asset_name = \"'$image_id'\" | dedup vulnerability_id, package_purl"
+            "query": "config timeframe between \"-7d\" and \"+1d\" | dataset = uvm_findings | filter asset_name = \"'$image_id'\" | dedup vulnerability_id, package_purl"
         }
     }')
 query_id=$(echo "$start_response" | jq -r '.reply')
