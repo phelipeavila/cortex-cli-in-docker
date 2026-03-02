@@ -220,12 +220,27 @@ fi
 
 # Execute API call to start the query
 echo "Obtaining findings of image $IMAGE_NAME..."
-start_response=$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: ${CORTEX_API_KEY}" -H "x-xdr-auth-id: ${CORTEX_API_KEY_ID}" "${CORTEX_API_URL}/public_api/v1/xql/start_xql_query" -d '
-    {
-        "request_data": {
-            "query": "config timeframe between \"-7d\" and \"+1d\" | dataset = uvm_findings | filter asset_name = \"'$image_id'\" | dedup vulnerability_id, package_purl"
-        }
-    }')
+# Build exact UTC time bounds for XQL timeframe.
+if date -u -v-1d "+%Y-%m-%d %H:%M:%S +0000" >/dev/null 2>&1; then
+    start_time_utc=$(date -u -v-7d "+%Y-%m-%d %H:%M:%S +0000")
+    end_time_utc=$(date -u -v+1d "+%Y-%m-%d %H:%M:%S +0000")
+else
+    start_time_utc=$(date -u -d "7 days ago" "+%Y-%m-%d %H:%M:%S +0000")
+    end_time_utc=$(date -u -d "1 day" "+%Y-%m-%d %H:%M:%S +0000")
+fi
+
+if [[ -z "$start_time_utc" || -z "$end_time_utc" ]]; then
+    echo "❌ Failed to compute UTC timeframe bounds for XQL query."
+    exit 1
+fi
+
+[[ "$VERBOSE" == "true" ]] && echo "XQL timeframe UTC: $start_time_utc -> $end_time_utc"
+
+xql_query="config timeframe between \"$start_time_utc\" and \"$end_time_utc\" | dataset = uvm_findings | filter asset_name = \"$image_id\" | dedup vulnerability_id, package_purl"
+start_payload=$(jq -n --arg query "$xql_query" '{request_data: {query: $query}}')
+[[ "$VERBOSE" == "true" ]] && echo "XQL query: $(echo "$start_payload" | jq -r '.request_data.query')"
+
+start_response=$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: ${CORTEX_API_KEY}" -H "x-xdr-auth-id: ${CORTEX_API_KEY_ID}" "${CORTEX_API_URL}/public_api/v1/xql/start_xql_query" -d "$start_payload")
 query_id=$(echo "$start_response" | jq -r '.reply')
 
 if [[ "$query_id" == "null" || -z "$query_id" ]]; then
